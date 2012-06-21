@@ -13,6 +13,15 @@ module Guard
       @run_on_start = true if options[:run_on_start] == true
       @rails_env = options[:rails_env]
       @seed = options[:seed]
+			
+			@engine_dummy_path = options[:engine_dummy_path]
+			
+			unless @engine_dummy_path.nil?
+				UI.info "engine dummy application path: #{@engine_dummy_path}"
+				
+				@engine_name = File.basename(Dir.pwd)
+				UI.info "engine name: #{@engine_name}"
+			end
     end
 
     def bundler?
@@ -68,17 +77,47 @@ module Guard
 
     def migrate(paths = [])
       return if !self.reset? && paths.empty?
-      system self.rake_string if self.reset?
+
+			if self.reset?
+				migrate_reset
+			end
+
+			# unless @engine_dummy_path.nil?
+			# 	system "rm db/migrate/*.#{@engine_name}.rb", {:chdir => @engine_dummy_path}
+			# end
+			# 
+			# exec_rake if self.reset?
+			
       paths.each do |path|
         UI.info "Running #{self.rake_string(path)}"
-        system self.rake_string(path)
+				exec_rake(path)
       end
     end
 
+		def migrate_reset
+			unless @engine_dummy_path.nil?
+				UI.info "rm db/migrate/*.#{@engine_name}.rb"
+				system "rm db/migrate/*.#{@engine_name}.rb", {:chdir => @engine_dummy_path}
+			end
+			
+			exec_rake
+		end
+
+		def exec_rake(path = nil)
+			if @engine_dummy_path.nil?
+				UI.info "Dir.pwd: #{Dir.pwd} 2"
+				system self.rake_string(path)
+			else
+				system "rm #{path}", {:chdir => @engine_dummy_path}
+				system self.rake_string(path), {:chdir => @engine_dummy_path}
+			end
+		end
+
     def rake_string(path = nil)
-      @rake_string = ''
+			@rake_string = ''
       @rake_string += 'bundle exec ' if self.bundler?
       @rake_string += 'rake'
+			@rake_string += " #{@engine_name}:install:migrations" unless @engine_dummy_path.nil?
       @rake_string += ' db:migrate'
       @rake_string += ':reset' if self.reset?
       @rake_string += ":redo VERSION=#{path}" if !self.reset? && path && !path.empty?
