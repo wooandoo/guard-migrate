@@ -1,5 +1,6 @@
 require 'guard'
 require 'guard/guard'
+require 'fileutils'
 
 module Guard
   class Migrate < Guard
@@ -97,7 +98,12 @@ module Guard
 		def migrate_reset
 			unless @engine_dummy_path.nil?
 				UI.info "rm db/migrate/*.#{@engine_name}.rb"
-				system "rm db/migrate/*.#{@engine_name}.rb", {:chdir => @engine_dummy_path}
+				FileUtils.rm Dir.glob("#{@engine_dummy_path}/db/migrate/*.#{@engine_name}.rb")
+				
+				if @seed
+					FileUtils.cp "db/seeds.rb", "#{@engine_dummy_path}/db"
+					FileUtils.cp_r "db/default", "#{@engine_dummy_path}/db"
+				end
 			end
 			
 			exec_rake
